@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IAM Basics: Secure vs Insecure Login Demo</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+        h1 { text-align: center; color: #38bdf8; margin-bottom: 30px; }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+        .card {
+            background-color: #1e293b;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            border: 1px solid #334155;
+        }
+        .card.insecure { border-top: 4px solid #ef4444; }
+        .card.secure { border-top: 4px solid #10b981; }
+        h2 { margin-top: 0; display: flex; justify-content: space-between; }
+        .badge { font-size: 12px; padding: 4px 8px; border-radius: 6px; }
+        .badge.red { background-color: #7f1d1d; color: #fca5a5; }
+        .badge.green { background-color: #064e3b; color: #a7f3d0; }
+        label { display: block; margin: 15px 0 5px; color: #94a3b8; }
+        input {
+            width: 100%;
+            padding: 10px;
+            background: #0f172a;
+            border: 1px solid #475569;
+            border-radius: 6px;
+            color: white;
+            box-sizing: border-box;
+        }
+        button {
+            margin-top: 15px;
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .btn-red { background-color: #ef4444; color: white; }
+        .btn-green { background-color: #10b981; color: white; }
+        .db-view {
+            margin-top: 25px;
+            background-color: #0f172a;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 13px;
+            border: 1px solid #334155;
+        }
+        .db-title { color: #64748b; font-weight: bold; margin-bottom: 5px; }
+        .status { margin-top: 10px; font-weight: bold; text-align: center; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>IAM Authentication Demo: Behind the Scenes</h1>
+
+    <div class="grid">
+        <!-- INSECURE SIDE -->
+        <div class="card insecure">
+            <h2>Insecure Login <span class="badge red">Vulnerable</span></h2>
+            <p style="color: #cbd5e1; font-size: 14px;">Passwords are sent and stored in Plain Text. No protection.</p>
+
+            <label>Username</label>
+            <input type="text" id="ins-user" value="test_user">
+
+            <label>Password</label>
+            <input type="text" id="ins-pass" value="Password123!">
+
+            <button class="btn-red" onclick="runInsecure()">Simulate Insecure Login</button>
+
+            <div class="status" id="ins-status"></div>
+
+            <div class="db-view">
+                <div class="db-title">💾 Database Storage View (Plain Text):</div>
+                <span style="color: #fca5a5;">SELECT * FROM users;</span><br>
+                <span id="ins-db">[{ id: 1, user: "test_user", pass: "Password123!" }]</span>
+            </div>
+        </div>
+
+        <!-- SECURE SIDE -->
+        <div class="card secure">
+            <h2>Secure Login <span class="badge green">Best Practice</span></h2>
+            <p style="color: #cbd5e1; font-size: 14px;">Passwords are salted and cryptographically hashed (SHA-256).</p>
+
+            <label>Username</label>
+            <input type="text" id="sec-user" value="test_user">
+
+            <label>Password</label>
+            <input type="password" id="sec-pass" value="Password123!">
+
+            <button class="btn-green" onclick="runSecure()">Simulate Secure Login</button>
+
+            <div class="status" id="sec-status"></div>
+
+            <div class="db-view">
+                <div class="db-title">💾 Database Storage View (Salted Hash):</div>
+                <span style="color: #a7f3d0;">SELECT * FROM users;</span><br>
+                <span id="sec-db" style="word-break: break-all;">[{ id: 1, user: "test_user", salt: "8f3b2a1c...", hash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" }]</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function runInsecure() {
+        const user = document.getElementById('ins-user').value;
+        const pass = document.getElementById('ins-pass').value;
+
+        // Update DB View live
+        document.getElementById('ins-db').innerText = `[{ id: 1, user: "${user}", pass: "${pass}" }]`;
+
+        const status = document.getElementById('ins-status');
+        status.style.color = "#ef4444";
+        status.innerText = "❌ Login Success, but Password leaked to DB in Plain Text!";
+    }
+
+    async function runSecure() {
+        const user = document.getElementById('sec-user').value;
+        const pass = document.getElementById('sec-pass').value;
+
+        // Generate a mock random salt and a simulated strong SHA-256 hash
+        const mockSalt = Math.random().toString(16).substring(2, 10);
+
+        // Basic web crypto to generate actual real SHA-256 for visual impact!
+        const msgBuffer = new TextEncoder().encode(pass + mockSalt);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const realHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+        // Update DB View live with the cryptographic result
+        document.getElementById('sec-db').innerText = `[{ id: 1, user: "${user}", salt: "${mockSalt}", hash: "${realHash}" }]`;
+
+        const status = document.getElementById('sec-status');
+        status.style.color = "#10b981";
+        status.innerText = "✅ Login Success! Password is secure. Only the salted hash is stored.";
+    }
+</script>
+</body>
+</html>
